@@ -5,11 +5,11 @@ import sys
 WIDTH, HEIGHT = 1920, 1080
 pg.init()
 screen = pg.display.set_mode((WIDTH, HEIGHT))
-pg.display.set_caption("コマンド選択画面")
+pg.display.set_caption("コマンド選択画面 + HPバー + HP表示")
 clock = pg.time.Clock()
 pg.mouse.set_visible(False)
 
-# 色
+# 色定義
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 YELLOW = (255, 255, 0)
@@ -17,18 +17,26 @@ YELLOW = (255, 255, 0)
 # フォント
 font = pg.font.SysFont("meiryo", 50)
 
-# コマンド設定
+# コマンド
 commands = ["こうげき", "アクション", "アイテム", "にげる"]
 selected_index = 0
 
-# コマンドボックス（全体はもうなくして各コマンド個別に枠を表示する形に）
-box_width = 250
+# コマンドボックスサイズ
+box_width = 265
 box_height = 80
-box_y = HEIGHT - 250  # 画面下から少し上に
+box_y = HEIGHT - 300
 
-# コマンドごとのx座標
+# HPバーサイズ
+hp_bar_width = 160
+hp_bar_height = 20
+hp_bar_margin_top = 10  # コマンドボックスとHPバーの間の隙間
+
+# HP値
+max_hp = 50
+current_hp = 50  # 0～max_hpで変更可能
+
 def get_command_boxes():
-    spacing = 40  # コマンドボックス間の隙間
+    spacing = 40
     total_width = len(commands) * box_width + (len(commands) - 1) * spacing
     start_x = (WIDTH - total_width) // 2
     boxes = []
@@ -37,7 +45,6 @@ def get_command_boxes():
         boxes.append(pg.Rect(x, box_y, box_width, box_height))
     return boxes
 
-# メインループ
 while True:
     for event in pg.event.get():
         if event.type == pg.QUIT:
@@ -52,16 +59,34 @@ while True:
     screen.fill(BLACK)
 
     boxes = get_command_boxes()
+
+    # コマンドボックス描画
     for i, rect in enumerate(boxes):
-        # 選択中は黄色枠、それ以外は白枠
         color = YELLOW if i == selected_index else WHITE
         pg.draw.rect(screen, color, rect, 4)
 
-        # テキスト描画（中央寄せ）
         text = font.render(commands[i], True, WHITE)
         text_x = rect.x + (rect.width - text.get_width()) // 2
         text_y = rect.y + (rect.height - text.get_height()) // 2
         screen.blit(text, (text_x, text_y))
+
+    # 真ん中2つのコマンドボックスの中心の真ん中を計算
+    center_x = (boxes[1].centerx + boxes[2].centerx) // 2
+    hp_bar_y = box_y + box_height + hp_bar_margin_top
+
+    # HPバー背景（黒）
+    pg.draw.rect(screen, BLACK, (center_x - hp_bar_width // 2, hp_bar_y, hp_bar_width, hp_bar_height))
+    # HPバー黄色部分（HPの割合に応じた幅）
+    hp_ratio = current_hp / max_hp
+    pg.draw.rect(screen, YELLOW, (center_x - hp_bar_width // 2, hp_bar_y, int(hp_bar_width * hp_ratio), hp_bar_height))
+    # HPバー枠（白）
+    pg.draw.rect(screen, WHITE, (center_x - hp_bar_width // 2, hp_bar_y, hp_bar_width, hp_bar_height), 2)
+
+    # HPバー横にHP数値表示
+    hp_text = font.render(f"{current_hp} / {max_hp}", True, WHITE)
+    text_x = center_x - hp_bar_width // 2 + hp_bar_width + 10
+    text_y = hp_bar_y + (hp_bar_height - hp_text.get_height()) // 2
+    screen.blit(hp_text, (text_x, text_y))
 
     pg.display.update()
     clock.tick(60)
