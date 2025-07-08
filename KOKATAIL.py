@@ -35,6 +35,14 @@ hp_bar_margin_top = 10  # コマンドボックスとHPバーの間の隙間
 max_hp = 50
 current_hp = 50  # 0～max_hpで変更可能
 
+# 攻撃力
+
+# 敵
+enemies = [{ "name": "サンズとん", "rect": pg.Rect(WIDTH // 2 - 300, HEIGHT // 2 - 150, 150, 100) }]
+
+# ゲームの状態
+game_state = "SELECTING", "TEXT_DISPLAY", "BATTLE", "ACTION", "ITEM_SELECT", "ESCAPE", "WIN", "LOSE"
+
 def get_command_boxes():
     spacing = 40
     total_width = len(commands) * box_width + (len(commands) - 1) * spacing
