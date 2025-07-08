@@ -16,6 +16,7 @@ YELLOW = (255, 255, 0)
 
 # フォント
 font = pg.font.SysFont("meiryo", 50)
+small_font = pg.font.SysFont("meiryo", 36)
 
 # コマンド
 commands = ["こうげき", "アクション", "アイテム", "にげる"]
@@ -35,6 +36,32 @@ hp_bar_margin_top = 10  # コマンドボックスとHPバーの間の隙間
 max_hp = 50
 current_hp = 50  # 0～max_hpで変更可能
 
+# アイテム関連
+items = ["ポーション", "ばんのうやく", "マジカルドーナツ","フェンタニル"]
+item_menu_open = False
+item_selected = 0
+
+def draw_item_menu():
+    menu_width = 500
+    menu_height = 300
+    menu_x = (WIDTH - menu_width) // 2
+    menu_y = (HEIGHT - menu_height) // 2
+    menu_rect = pg.Rect(menu_x, menu_y, menu_width, menu_height)
+
+    # 背景と枠
+    pg.draw.rect(screen, BLACK, menu_rect)
+    pg.draw.rect(screen, WHITE, menu_rect, 3)
+
+    # タイトル
+    title = font.render("アイテム", True, WHITE)
+    screen.blit(title, (menu_x + 20, menu_y + 10))
+
+    # アイテムリスト表示
+    for i, item in enumerate(items):
+        color = YELLOW if i == item_selected else WHITE
+        item_text = small_font.render(f"- {item}", True, color)
+        screen.blit(item_text, (menu_x + 40, menu_y + 70 + i * 50))
+
 def get_command_boxes():
     spacing = 40
     total_width = len(commands) * box_width + (len(commands) - 1) * spacing
@@ -51,10 +78,29 @@ while True:
             pg.quit()
             sys.exit()
         elif event.type == pg.KEYDOWN:
-            if event.key == pg.K_RIGHT:
-                selected_index = (selected_index + 1) % len(commands)
-            elif event.key == pg.K_LEFT:
-                selected_index = (selected_index - 1) % len(commands)
+            if item_menu_open:
+                if event.key == pg.K_ESCAPE:
+                    item_menu_open = False
+                elif event.key == pg.K_DOWN:
+                    item_selected = (item_selected + 1) % len(items)
+                elif event.key == pg.K_UP:
+                    item_selected = (item_selected - 1) % len(items)
+                elif event.key == pg.K_RETURN:
+                    # アイテム使用処理（HP +10、最大50）
+                    if current_hp < max_hp:
+                        current_hp += 10
+                        if current_hp > max_hp:
+                            current_hp = max_hp
+                    item_menu_open = False
+            else:
+                if event.key == pg.K_RIGHT:
+                    selected_index = (selected_index + 1) % len(commands)
+                elif event.key == pg.K_LEFT:
+                    selected_index = (selected_index - 1) % len(commands)
+                elif event.key == pg.K_RETURN:
+                    if commands[selected_index] == "アイテム":
+                        item_menu_open = True
+                        item_selected = 0
 
     screen.fill(BLACK)
 
@@ -87,6 +133,10 @@ while True:
     text_x = center_x - hp_bar_width // 2 + hp_bar_width + 10
     text_y = hp_bar_y + (hp_bar_height - hp_text.get_height()) // 2
     screen.blit(hp_text, (text_x, text_y))
+
+    # アイテムメニュー描画（開いているとき）
+    if item_menu_open:
+        draw_item_menu()
 
     pg.display.update()
     clock.tick(60)
