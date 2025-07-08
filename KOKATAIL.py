@@ -1,5 +1,8 @@
 import pygame as pg
 import sys
+import os
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # 初期設定
 WIDTH, HEIGHT = 1920, 1080
@@ -45,12 +48,38 @@ def get_command_boxes():
         boxes.append(pg.Rect(x, box_y, box_width, box_height))
     return boxes
 
+class Enemy():
+    """
+    敵に関するクラス
+    """
+    img0 = pg.image.load(f"photo/enemy1_bob_v2.gif")
+    img = pg.transform.rotozoom(img0,0,0.5)
+    def __init__(self):
+        self.image = __class__.img
+        self.rect = self.image.get_rect()
+        self.rect.centerx = WIDTH // 2
+        self.rect.centery = 100
+        self.tmr = 0
+
+    def update(self, screen: pg.Surface):
+        self.tmr += 1
+        # if 0 <= self.tmr % 40 < 10 or 20 <= self.tmr % 40 < 30:
+        #     self.rect.centerx = WIDTH // 2
+        # elif 10 <= self.tmr % 40 < 20:
+        #     self.rect.centerx += 15
+        # elif 10 <= self.tmr % 40 < 20:
+        #     self.rect.centerx -= 15
+        screen.blit(self.image,self.rect)
+
+
+tmr = 0
+sanzuton = Enemy()
 while True:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             pg.quit()
             sys.exit()
-        elif event.type == pg.KEYDOWN:
+        if event.type == pg.KEYDOWN:
             if event.key == pg.K_RIGHT:
                 selected_index = (selected_index + 1) % len(commands)
             elif event.key == pg.K_LEFT:
@@ -81,12 +110,13 @@ while True:
     pg.draw.rect(screen, YELLOW, (center_x - hp_bar_width // 2, hp_bar_y, int(hp_bar_width * hp_ratio), hp_bar_height))
     # HPバー枠（白）
     pg.draw.rect(screen, WHITE, (center_x - hp_bar_width // 2, hp_bar_y, hp_bar_width, hp_bar_height), 2)
-
     # HPバー横にHP数値表示
     hp_text = font.render(f"{current_hp} / {max_hp}", True, WHITE)
     text_x = center_x - hp_bar_width // 2 + hp_bar_width + 10
     text_y = hp_bar_y + (hp_bar_height - hp_text.get_height()) // 2
     screen.blit(hp_text, (text_x, text_y))
 
+    sanzuton.update(screen)
     pg.display.update()
+    tmr += 1
     clock.tick(60)
