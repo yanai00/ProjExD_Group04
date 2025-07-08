@@ -2,6 +2,7 @@ import os
 import pygame as pg
 import sys
 from typing import List
+import random
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -64,23 +65,62 @@ class Enemy():
     敵に関するクラス
     """
     img0 = pg.image.load(f"photo/enemy1_bob_v2.gif")
-    img = pg.transform.rotozoom(img0,0,0.5)
+    img = pg.transform.rotozoom(img0,0,0.3)
     def __init__(self):
         self.image = __class__.img
         self.rect = self.image.get_rect()
         self.rect.centerx = WIDTH // 2
-        self.rect.centery = 100
+        self.rect.centery = 300
         self.tmr = 0
 
     def update(self, screen: pg.Surface):
         self.tmr += 1
-        # if 0 <= self.tmr % 40 < 10 or 20 <= self.tmr % 40 < 30:
-        #     self.rect.centerx = WIDTH // 2
-        # elif 10 <= self.tmr % 40 < 20:
-        #     self.rect.centerx += 15
-        # elif 10 <= self.tmr % 40 < 20:
-        #     self.rect.centerx -= 15
-        screen.blit(self.image,self.rect)
+        if self.tmr >= 20:
+            if self.tmr % 80 == 20:
+                self.rect.centerx += 20
+                self.rect.centery += 10
+            elif self.tmr % 80 == 40:
+                self.rect.centerx -= 20
+                self.rect.centery -= 10
+            elif self.tmr % 80 == 60:
+                self.rect.centerx -= 20
+                self.rect.centery += 10
+            elif self.tmr % 80 == 0:
+                self.rect.centerx += 20
+                self.rect.centery -= 10
+            screen.blit(self.image,self.rect)
+
+# class enemy_turn():
+#     delta = {  # 押下キーと移動量の辞書
+#         pg.K_UP: (0, -3),
+#         pg.K_DOWN: (0, +3),
+#         pg.K_LEFT: (-1, 3),
+#         pg.K_RIGHT: (+1, 3),
+#     }
+#     box_img = pg.Surface((30, 30))
+#     pg.draw.rect(box_img, (255, 255, 255), (10, 10), 10)
+#     box_img.set_colorkey((0, 0, 0))
+    
+#     def __init__(self):
+        
+#     def update():
+#         # 例: 画面下部に配置
+#         text_box_rect = pg.Rect(400, HEIGHT - 500, WIDTH - 800, 150)
+#         pg.draw.rect(screen, BLACK, text_box_rect)
+#         pg.draw.rect(screen, WHITE, text_box_rect, 4)
+
+
+# class enemy_atk():
+#     imgs = [pg.transform.rotozoom(f"photo/{i}.png",0,0.5) for i in range(0, 10)]
+    
+#     def __init__(self, hp: int,atk: int):
+#         self.image = pg.transform.rotozoom(random.choice(__class__.imgs), 0, 0.8)
+#         self.rect = self.image.get_rect()
+
+# class TurnManager():
+#     def __init__():
+#         self.num = 0
+
 
 def main() -> None:
     """
@@ -145,6 +185,7 @@ def main() -> None:
         text_x = center_x - hp_bar_width // 2 + hp_bar_width + 10
         text_y = hp_bar_y + (hp_bar_height - hp_text.get_height()) // 2
         screen.blit(hp_text, (text_x, text_y))
+
         emy.update(screen)
 
         pg.display.update()
