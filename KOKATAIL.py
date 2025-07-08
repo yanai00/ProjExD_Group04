@@ -37,13 +37,13 @@ max_hp = 50
 current_hp = 50  # 0～max_hpで変更可能
 
 # アイテム関連
-items = ["ポーション", "ばんのうやく", "マジカルドーナツ","フェンタニル"]
+items = ["こうかとんのから揚げ", "こうかとんのつくね", "こうかとんのぼんじり","こうかとんのもも串","こうかとんの皮串","こうかとんだったもの"]
 item_menu_open = False
 item_selected = 0
 
 def draw_item_menu():
-    menu_width = 500
-    menu_height = 300
+    menu_width = 800
+    menu_height = 400
     menu_x = (WIDTH - menu_width) // 2
     menu_y = (HEIGHT - menu_height) // 2
     menu_rect = pg.Rect(menu_x, menu_y, menu_width, menu_height)
