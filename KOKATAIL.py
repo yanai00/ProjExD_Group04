@@ -1,6 +1,6 @@
 import pygame as pg
 import sys
-
+import time
 # 初期設定
 WIDTH, HEIGHT = 1920, 1080
 pg.init()
@@ -16,15 +16,16 @@ YELLOW = (255, 255, 0)
 
 # フォント
 font = pg.font.SysFont("meiryo", 50)
+small_font = pg.font.SysFont("meiryo", 40)
 
 # メインコマンド
 commands = ["こうげき", "アクション", "アイテム", "にげる"]
 selected_index = 0
 
 # サブコマンド（アクション時）
-action_commands = ["はなす", "ぶんせき"]
+action_commands = ["はなす", "ぶんせき","だまる"]
 action_selected_index = 0
-in_action_command = False
+in_action_command = 0
 
 # コマンドボックスサイズ
 box_width = 265
@@ -54,7 +55,7 @@ def draw_action_menu():
     box_width = 400
     box_height = 80
     spacing = 20
-    start_x = 50
+    start_x = 350
     start_y = HEIGHT-300
     for i, act in enumerate(action_commands):
         rect = pg.Rect(start_x + i * (box_width + spacing), start_y, box_width, box_height)
@@ -65,6 +66,16 @@ def draw_action_menu():
         text_y = rect.y + (box_height - text.get_height()) // 2
         screen.blit(text, (text_x, text_y))
 
+
+def _draw_message_box(self, screen, text):
+    # 1行のメッセージを持つテキストボックスを描画する
+    box_rect = pg.Rect(400, HEIGHT - 200, WIDTH - 800, 150)
+    pg.draw.rect(screen, BLACK, box_rect)
+    pg.draw.rect(screen, WHITE, box_rect, 4)
+    surf = small_font.render(text, True, WHITE)
+    screen.blit(surf, (box_rect.x + 40, box_rect.y + 30))
+
+    
 while True:
     for event in pg.event.get():
         if event.type == pg.QUIT:
@@ -72,16 +83,21 @@ while True:
             sys.exit()
 
         elif event.type == pg.KEYDOWN:
-            if in_action_command:
-                if event.key == pg.K_UP:
+            if in_action_command == 1:
+                if event.key == pg.K_LEFT:
                     action_selected_index = (action_selected_index - 1) % len(action_commands)
-                elif event.key == pg.K_DOWN:
+                elif event.key == pg.K_RIGHT:
                     action_selected_index = (action_selected_index + 1) % len(action_commands)
                 elif event.key == pg.K_RETURN:
                     print(f"{action_commands[action_selected_index]} を選択しました！")
-                    in_action_command = False
+                    if action_commands[action_selected_index] == "はなす":
+                        in_action_command = 2
+                    elif action_commands[action_selected_index] == "ぶんせき":
+                        in_action_command = 2
+                    else:
+                        in_action_command = 2
                 elif event.key == pg.K_ESCAPE:
-                    in_action_command = False
+                    in_action_command = 0
 
             else:
                 if event.key == pg.K_RIGHT:
@@ -90,12 +106,17 @@ while True:
                     selected_index = (selected_index - 1) % len(commands)
                 elif event.key == pg.K_RETURN:
                     if commands[selected_index] == "アクション":
-                        in_action_command = True
+                        in_action_command = 1
                         action_selected_index = 0  # 初期化
 
     screen.fill(BLACK)
+    # if in_action_command == 2:
+        # _draw_message_box(screen,screen,"")
+        
 
-    if in_action_command:
+
+
+    if in_action_command ==1:
         draw_action_menu()
     else:
         boxes = get_command_boxes()
