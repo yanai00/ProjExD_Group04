@@ -82,7 +82,6 @@ class Escape:
 
         if self.last_result is None:
             return
-        screen.fill(BLACK)
         if self.last_result:
             msg = font.render("逃げた", True, (0, 255, 0))
             msg_rect = msg.get_rect()
