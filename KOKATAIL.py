@@ -1,7 +1,6 @@
 import os
 import pygame as pg
 import sys
-import time
 from typing import List
 # 初期設定/main
 
@@ -165,9 +164,9 @@ class main():
             if CommandBoxManager.action_commands[action_selected_index] == "はなす":
                 _draw_message_box(screen,screen,"話しかけたが返事はなかった")
             elif CommandBoxManager.action_commands[action_selected_index] == "ぶんせき":
-                _draw_message_box(screen,screen,"AT:5 DF:5  油断しなければ勝てるだろう") 
+                _draw_message_box(screen,screen,"AT:3 DF:5  油断しなければ勝てるだろう") 
             else:
-                _draw_message_box(screen,screen,"互いに話さず静寂に包まれた")
+                _draw_message_box(screen,screen,"静寂に包まれた")
             if event.key == pg.K_RETURN:
                 in_action_command == 0
 
