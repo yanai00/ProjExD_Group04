@@ -168,6 +168,7 @@ class CommandBoxManager:
         self.text_y = self.hp_bar_y + (__class__.hp_bar_height - self.hp_text.get_height()) // 2
         screen.blit(self.hp_text, (self.text_x, self.text_y))
 
+
 def main():
     """
     メインゲームループ
