@@ -1,44 +1,46 @@
+import os
 import pygame as pg
 import sys
-import os
+from typing import List
 import random
 import time
-# 初期設定
-WIDTH, HEIGHT = 1920, 1080
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-pg.init()
-screen = pg.display.set_mode((WIDTH, HEIGHT))
-pg.display.set_caption("コマンド選択画面 + HPバー + HP表示")
-clock = pg.time.Clock()
-pg.mouse.set_visible(False)
 
-# 色定義
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 YELLOW = (255, 255, 0)
 
-# フォント
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+pg.init()  # pygameの初期化は必ず最初に行う
+
+# 初期化後にフォント作成
+WIDTH, HEIGHT = 1920, 1080
 font = pg.font.SysFont("meiryo", 50)
+small_font = pg.font.SysFont("meiryo", 36)
 
-# コマンド
-commands = ["こうげき", "アクション", "アイテム", "にげる"]
-selected_index = 0
+class TurnManager():
+    def __init__(self):
+        self.num = 0
+        self.turn = "player"
 
-# コマンドボックスサイズ
-box_width = 265
-box_height = 80
-box_y = HEIGHT - 300
+    def turn_change(self):
+        if self.turn == "player":
+            self.turn = "enemy"
+        elif self.turn == "enemy":
+            self.turn = "player"
+            self.num += 1
 
-# HPバーサイズ
-hp_bar_width = 160
-hp_bar_height = 20
-hp_bar_margin_top = 10  # コマンドボックスとHPバーの間の隙間
 
-# HP値
-max_hp = 50
-current_hp = 50  # 0～max_hpで変更可能
+class Player():
 
-class Escape:
+    def __init__(self, HP:int, ATK:int):
+        self.former_hp = HP
+        self.hp = self.former_hp
+        self.former_atk = ATK
+        self.atk = self.former_atk
+
+
+class Escape():
     """
     逃げるコマンドの判定クラス
     20%の確率で成功（True）、それ以外は失敗（False）を返す
@@ -63,14 +65,14 @@ class Escape:
         Returns:
             bool: 逃走成功ならTrue、失敗ならFalse
         """
-        result = random.random() < 0.1 
+        result = random.random() < 0.2 
         self.last_result = result
         if result:
             self.success_count += 1
         else:
             self.fail_count += 1
         return result
-
+    
     def show_result(self, screen:pg.surface, font:pg.font.Font) -> None:
         """
         最後の逃走結果を画面中央に表示し、少し待機する。
@@ -98,42 +100,102 @@ class Escape:
             screen.blit(msg, msg_rect)
             pg.display.update()
             time.sleep(1)
-        
 
+class CommandBoxManager:
+    """
+    コマンドボックスの位置計算と描画管理クラス
+    """
+    
+    commands = ["こうげき", "アクション", "アイテム", "にげる"]
+    box_width = 265
+    box_height = 80
+    box_y = HEIGHT - 300
+    hp_bar_width = 160
+    hp_bar_height = 20
+    hp_bar_margin_top = 10
+    hp_bar_y = box_y + box_height + hp_bar_margin_top
 
-def get_command_boxes():
-    """
-    コマンド選択用の矩形リストを作成する。
-    各コマンドは等間隔に横並びされ、中央揃えされる。
-    Returns:
-        list[pg.Rect]: コマンドボックスのリスト
-    """
-    spacing = 40
-    total_width = len(commands) * box_width + (len(commands) - 1) * spacing
-    start_x = (WIDTH - total_width) // 2
-    boxes = []
-    for i in range(len(commands)):
-        x = start_x + i * (box_width + spacing)
-        boxes.append(pg.Rect(x, box_y, box_width, box_height))
-    return boxes
+    def __init__(self, player:Player, font: pg.font.Font,) -> None: #enemy:Enemy
+        self.commands = __class__.commands
+        self.box_width = __class__.box_width
+        self.box_height = __class__.box_height
+        self.box_y = __class__.box_y
+        self.font = font
+        self.former_hp = player.former_hp
+        self.hp = player.hp
+
+    def get_command_boxes(self) -> List[pg.Rect]:
+        """
+        コマンドボックスのpygame.Rectリストを生成する。
+        """
+        spacing = 40
+        total_width = len(self.commands) * __class__.box_width + (len(self.commands) - 1) * spacing
+        start_x = (WIDTH - total_width) // 2
+        boxes = []
+        for i in range(len(self.commands)):
+            x = start_x + i * (__class__.box_width + spacing)
+            boxes.append(pg.Rect(x, __class__.box_y, __class__.box_width, __class__.box_height))
+        return boxes
+
+    def draw(self, screen: pg.Surface, selected_index: int) -> None:
+        """
+        コマンドボックスを画面に描画する。選択中のコマンドは黄色で強調。
+        """
+        self.boxes = self.get_command_boxes()
+        for i, rect in enumerate(self.boxes):
+            color = YELLOW if i == selected_index else WHITE
+            pg.draw.rect(screen, color, rect, 4)
+
+            self.text = self.font.render(self.commands[i], True, WHITE)
+            self.text_x = rect.x + (rect.width - self.text.get_width()) // 2
+            self.text_y = rect.y + (rect.height - self.text.get_height()) // 2
+            screen.blit(self.text, (self.text_x, self.text_y))
+
+    def update(self, screen:pg.Surface):
+        self.boxes = self.get_command_boxes()
+        self.center_x = (self.boxes[1].centerx + self.boxes[2].centerx) // 2
+        # HPバー背景（黒）
+        pg.draw.rect(screen, BLACK, (self.center_x - __class__.hp_bar_width // 2, __class__.hp_bar_y, __class__.hp_bar_width, __class__.hp_bar_height))
+        # HPバー黄色部分（HPの割合に応じた幅）
+        self.hp_ratio = self.hp / self.former_hp
+        pg.draw.rect(screen, YELLOW, (self.center_x - __class__.hp_bar_width // 2, __class__.hp_bar_y, int(__class__.hp_bar_width * self.hp_ratio), __class__.hp_bar_height))
+        # HPバー枠（白）
+        pg.draw.rect(screen, WHITE, (self.center_x - __class__.hp_bar_width // 2, __class__.hp_bar_y, __class__.hp_bar_width, __class__.hp_bar_height), 2)
+
+        # HPバー横にHP数値表示
+        self.hp_text = font.render(f"{self.hp} / {self.former_hp}", True, WHITE)
+        self.text_x = self.center_x - __class__.hp_bar_width // 2 + __class__.hp_bar_width + 10
+        self.text_y = self.hp_bar_y + (__class__.hp_bar_height - self.hp_text.get_height()) // 2
+        screen.blit(self.hp_text, (self.text_x, self.text_y))
 
 def main():
-    selected_index = 0
-    escape = Escape()
-    global current_hp  # HPをグローバルで使う場合
+    """
+    メインゲームループ
+    """
+    screen = pg.display.set_mode((WIDTH, HEIGHT))
+    pg.display.set_caption("コマンド選択画面 + HPバー + HP表示")
+    clock = pg.time.Clock()
+    pg.mouse.set_visible(False)
 
-    while True:
+    player = Player(50, 5)
+    # enemy = Enemy(50,5)
+    escape = Escape()
+    command_manager = CommandBoxManager(player, font)#enemy消した
+    selected_index = 0
+
+    running = True
+    while running:
         for event in pg.event.get():
             if event.type == pg.QUIT:
-                pg.quit()
-                sys.exit()
+                running = False
+
             elif event.type == pg.KEYDOWN:
                 if event.key == pg.K_RIGHT:
-                    selected_index = (selected_index + 1) % len(commands)
+                    selected_index = (selected_index + 1) % len(CommandBoxManager.commands)
                 elif event.key == pg.K_LEFT:
-                    selected_index = (selected_index - 1) % len(commands)
+                    selected_index = (selected_index - 1) % len(CommandBoxManager.commands)
                 elif event.key == pg.K_RETURN:
-                    if commands[selected_index] == "にげる":
+                    if CommandBoxManager.commands[selected_index] == "にげる":
                         if escape.try_escape():
                             escape.show_result(screen, font)
                             pg.quit()
@@ -141,40 +203,18 @@ def main():
                         else:
                             escape.show_result(screen, font)
 
+
+
         screen.fill(BLACK)
-
-        boxes = get_command_boxes()
-
-        # コマンドボックス描画
-        for i, rect in enumerate(boxes):
-            color = YELLOW if i == selected_index else WHITE
-            pg.draw.rect(screen, color, rect, 4)
-
-            text = font.render(commands[i], True, WHITE)
-            text_x = rect.x + (rect.width - text.get_width()) // 2
-            text_y = rect.y + (rect.height - text.get_height()) // 2
-            screen.blit(text, (text_x, text_y))
-
-        # 真ん中2つのコマンドボックスの中心の真ん中を計算
-        center_x = (boxes[1].centerx + boxes[2].centerx) // 2
-        hp_bar_y = box_y + box_height + hp_bar_margin_top
-
-        # HPバー背景（黒）
-        pg.draw.rect(screen, BLACK, (center_x - hp_bar_width // 2, hp_bar_y, hp_bar_width, hp_bar_height))
-        # HPバー黄色部分（HPの割合に応じた幅）
-        hp_ratio = current_hp / max_hp
-        pg.draw.rect(screen, YELLOW, (center_x - hp_bar_width // 2, hp_bar_y, int(hp_bar_width * hp_ratio), hp_bar_height))
-        # HPバー枠（白）
-        pg.draw.rect(screen, WHITE, (center_x - hp_bar_width // 2, hp_bar_y, hp_bar_width, hp_bar_height), 2)
-
-        # HPバー横にHP数値表示
-        hp_text = font.render(f"{current_hp} / {max_hp}", True, WHITE)
-        text_x = center_x - hp_bar_width // 2 + hp_bar_width + 10
-        text_y = hp_bar_y + (hp_bar_height - hp_text.get_height()) // 2
-        screen.blit(hp_text, (text_x, text_y))
-
+        command_manager.draw(screen, selected_index)
+        #enemy.update(screen)
+        command_manager.update(screen)
         pg.display.update()
         clock.tick(60)
 
+
 if __name__ == "__main__":
+    pg.init()
     main()
+    pg.quit()
+    sys.exit()
