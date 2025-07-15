@@ -3,6 +3,7 @@ import pygame as pg
 import sys
 from typing import List
 import random
+import time
 
 
 # --- 初期設定 ---
@@ -115,7 +116,7 @@ class TurnManager:
 
 class TurnManager():
     def __init__(self):
-        self.num = 1
+        self.num = 0
         self.turn = "player"
 
     def turn_change(self):
@@ -125,7 +126,6 @@ class TurnManager():
             self.turn = "player"
             self.num += 1
 
-# --- クラス定義 ---
 class Player():
     """
     プレイヤーのHPと攻撃力を管理するクラス
@@ -140,13 +140,73 @@ class Player():
         enemy.take_damage(self.atk)
 
 
-class CommandBoxManager():
+class Escape():
+    """
+    逃げるコマンドの判定クラス
+    20%の確率で成功（True）、それ以外は失敗（False）を返す
+    逃げた回数や失敗回数も記録
+    """
+    def __init__(self):
+        """
+        Escapeオブジェクトを初期化する。
+        success_count: 成功した逃走回数
+        fail_count: 失敗した逃走回数
+        last_result: 最後の逃走結果 (True=成功, False=失敗, None=未試行)
+        """
+
+        self.success_count = 0
+        self.fail_count = 0
+        self.last_result = None  # True:成功, False:失敗
+
+    def try_escape(self) -> bool:
+        """
+        逃走を試みる。
+        成功確率は10%。
+        Returns:
+            bool: 逃走成功ならTrue、失敗ならFalse
+        """
+        result = random.random() < 0.2 
+        self.last_result = result
+        if result:
+            self.success_count += 1
+        else:
+            self.fail_count += 1
+        return result
+    
+    def show_result(self, screen:pg.surface, font:pg.font.Font) -> None:
+        """
+        最後の逃走結果を画面中央に表示し、少し待機する。
+
+        Args:
+            screen (pg.Surface): 描画先のSurface
+            font (pg.font.Font): 文字描画に使用するフォント
+        """
+
+        if self.last_result is None:
+            return
+        screen.fill(BLACK)
+        if self.last_result:
+            msg = font.render("逃げた", True, (0, 255, 0))
+            msg_rect = msg.get_rect()
+            msg_rect.center = (WIDTH // 2, HEIGHT // 2)
+            screen.blit(msg, msg_rect)
+            pg.display.update()
+            time.sleep(2)
+        else:
+            msg = font.render("逃げれなかった", True, (255, 0, 0))
+
+            msg_rect = msg.get_rect()
+            msg_rect.center = (WIDTH // 2, HEIGHT // 2)
+            screen.blit(msg, msg_rect)
+            pg.display.update()
+            time.sleep(1)
+
+class CommandBoxManager:
     """
     コマンドボックスの位置計算と描画管理クラス
     """
     
     commands = ["こうげき", "アクション", "アイテム", "にげる"]
-
     def __init__(self, player:Player, turn:TurnManager, font: pg.font.Font) -> None:
         self.box_width = 265
         self.box_height = 80
@@ -450,7 +510,6 @@ def main():
     pg.display.set_caption("コマンド選択画面 + HPバー + HP表示")
     clock = pg.time.Clock()
     pg.mouse.set_visible(False)
-
     turn = TurnManager()
     player = Player(50, 5)
     command_manager = CommandBoxManager(player, turn, font)
