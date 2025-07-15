@@ -45,10 +45,6 @@ class CommandBoxManager:
     """
     commands = ["こうげき", "アクション", "アイテム", "にげる"]
     selected_index = 0
-    # サブコマンド（アクション時）
-    action_commands = ["はなす", "ぶんせき","だまる"]
-    action_selected_index = 0
-    in_action_command = 0
     # コマンドボックスサイズ
     box_width = 265
     box_height = 80
@@ -62,23 +58,23 @@ class CommandBoxManager:
     max_hp = 50
     current_hp = 50
 
-    def __init__(self, player:Player, enemy:Enemy, font: pg.font.Font,) -> None:
-            self.commands = __class__.commands
-            self.box_width = __class__.box_width
-            self.box_height = __class__.box_height
-            self.box_y = __class__.box_y
-            self.font = font
-            self.former_hp = player.former_hp
-            self.hp = player.hp
+    def __init__(self, player:Player, font: pg.font.Font,) -> None:
+        self.commands = __class__.commands
+        self.box_width = __class__.box_width
+        self.box_height = __class__.box_height
+        self.box_y = __class__.box_y
+        self.font = font
+        self.former_hp = player.former_hp
+        self.hp = player.hp
 
     def get_command_boxes(self) -> List[pg.Rect]:
         spacing = 40
-        total_width = len(self.commands) * __class__.box_width + (len(self.commands) - 1) * spacing
+        total_width = len(self.commands) * self.box_width + (len(self.commands) - 1) * spacing
         start_x = (WIDTH - total_width) // 2
         boxes = []
         for i in range(len(self.commands)):
-            x = start_x + i * (__class__.box_width + spacing)
-            boxes.append(pg.Rect(x, __class__.box_y, __class__.box_width, __class__.box_height))
+            x = start_x + i * (self.box_width + spacing)
+            boxes.append(pg.Rect(x, self.box_y, self.box_width, self.box_height))
         return boxes
 
     def draw(self, screen: pg.Surface, selected_index: int) -> None:
@@ -112,98 +108,104 @@ class CommandBoxManager:
         self.text_y = self.hp_bar_y + (__class__.hp_bar_height - self.hp_text.get_height()) // 2
         screen.blit(self.hp_text, (self.text_x, self.text_y))
 
-def _draw_message_box(self, screen, text):
-    # 1行のメッセージを持つテキストボックスを描画する
-    box_rect = pg.Rect(400, HEIGHT - 400, WIDTH - 800, 150)
-    pg.draw.rect(screen, BLACK, box_rect)
-    pg.draw.rect(screen, WHITE, box_rect, 4)
-    surf = small_font.render(text, True, WHITE)
-    screen.blit(surf, (box_rect.x + 40, box_rect.y + 30))
 
-class main():
+class Action():
+    commands = ["はなす", "分析", "黙る"]
+    command_result = ["話しかけたが返事はなかった",
+                      "AT:3 DF:5  油断しなければ勝てるだろう",
+                      "静寂に包まれた"]
+    def __init__(self, command:CommandBoxManager, turn:TurnManager, font:pg.font.Font):
+        self.command = command
+        self.index = command.selected_index
+        self.command_result = __class__.command_result
+        self.state = False
+        self.action_num = 0
+        self.turn = turn
+        self.font = font
+        self.box_width = 1180
+        self.box_height = 280
+        self.start_x = (WIDTH - self.box_width) // 2
+        self.start_y = self.command.box_y - self.box_height - 20
+        self.commands = __class__.commands
+        self.text_x = self.start_x + 30
+        self.text_y = self.start_y + 30
+        self.tmr = 0
+
+    def draw_box(self, screen:pg.Surface):
+        pg.draw.rect(screen, WHITE, (self.start_x, self.start_y, self.box_width, self.box_height), 4)
+
+    def select_command(self, screen:pg.Surface):
+        if self.turn.turn == "player" and self.state == True:
+            for i in range(len(self.commands)):
+                self.text = self.font.render(self.commands[i], True, WHITE)
+                screen.blit(self.text, (self.text_x, self.text_y + i * 46))
+                if i == self.action_num:
+                    self.text = self.font.render(self.commands[i], True, YELLOW)
+                    screen.blit(self.text, (self.text_x, self.text_y + i * 46))
+
+def main():
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     pg.display.set_caption("コマンド選択画面 + HPバー + HP表示")
     clock = pg.time.Clock()
     pg.mouse.set_visible(False)
 
     player = Player(50, 5)
-    enemy = Enemy(50,5)
-    command_manager = CommandBoxManager(player, enemy, font)
+    turn = TurnManager()
+    command_manager = CommandBoxManager(player, font)
+    action = Action(command_manager, turn, small_font)
     selected_index = 0
+    tmr = 0
+    com_cnt = None
 
-    running = True
-    while running:
+    while True:
         for event in pg.event.get():
-            if event.type == pg.QUIT:
-                running = False
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_LEFT and action.state == False:
+                    selected_index = (selected_index - 1) % len(CommandBoxManager.commands)
+                elif event.key == pg.K_RIGHT and action.state == False:
+                    selected_index = (selected_index + 1) % len(CommandBoxManager.commands)
+                elif event.key == pg.K_UP:
+                    if action.state == True:
+                        if action.action_num == 0:
+                            action.action_num = len(action.commands) - 1
+                        else:
+                            action.action_num -= 1
+                elif event.key == pg.K_DOWN:
+                    if action.state == True:
+                        if action.action_num == len(action.commands) - 1:
+                            action.action_num = 0
+                        else:
+                            action.action_num += 1
+                elif event.key == pg.K_RETURN:
+                    if selected_index == 1 and action.state == False:
+                        action.state = True
+                    elif action.state == True:
+                        com_cnt = tmr
+                elif event.key == pg.K_q:
+                    return
                 
 
-            elif event.type == pg.KEYDOWN:
-                if in_action_command == 1:
-                    if event.key == pg.K_LEFT:
-                        action_selected_index = (action_selected_index - 1) % len(CommandBoxManager.action_commands)
-                    elif event.key == pg.K_RIGHT:
-                        action_selected_index = (action_selected_index + 1) % len(CommandBoxManager.action_commands)
-                    elif event.key == pg.K_RETURN:
-                        print(f"{CommandBoxManager.action_commands[action_selected_index]} を選択しました！")
-                        in_action_command = 2
-                    elif event.key == pg.K_ESCAPE:
-                        in_action_command = 0
-
-                else:
-                    if event.key == pg.K_RIGHT:
-                        selected_index = (selected_index + 1) % len(CommandBoxManager.commands)
-                    elif event.key == pg.K_LEFT:
-                        selected_index = (selected_index - 1) % len(CommandBoxManager.commands)
-                    elif event.key == pg.K_RETURN:
-                        if CommandBoxManager.commands[selected_index] == "アクション":
-                            in_action_command = 1
-                            action_selected_index = 0  # 初期化
-
-        if in_action_command == 2:
-            if CommandBoxManager.action_commands[action_selected_index] == "はなす":
-                _draw_message_box(screen,screen,"話しかけたが返事はなかった")
-            elif CommandBoxManager.action_commands[action_selected_index] == "ぶんせき":
-                _draw_message_box(screen,screen,"AT:3 DF:5  油断しなければ勝てるだろう") 
-            else:
-                _draw_message_box(screen,screen,"静寂に包まれた")
-            if event.key == pg.K_RETURN:
-                in_action_command == 0
-
-
-
-        if in_action_command ==1:
-            CommandBoxManager.draw_action_menu()
-        elif in_action_command == 0:
-            boxes = CommandBoxManager.get_command_boxes()
-            for i, rect in enumerate(boxes):
-                color = YELLOW if i == selected_index else WHITE
-                pg.draw.rect(screen, color, rect, 4)
-
-                text = font.render(CommandBoxManager.commands[i], True, WHITE)
-                text_x = rect.x + (rect.width - text.get_width()) // 2
-                text_y = rect.y + (rect.height - text.get_height()) // 2
-                screen.blit(text, (text_x, text_y))
-
-            # HPバー
-            center_x = (boxes[1].centerx + boxes[2].centerx) // 2
-            hp_bar_y = CommandBoxManager.box_y + CommandBoxManager.box_height + CommandBoxManager.hp_bar_margin_top
-            pg.draw.rect(screen, BLACK, (center_x - CommandBoxManager.hp_bar_width // 2, hp_bar_y, CommandBoxManager.hp_bar_width, CommandBoxManager.hp_bar_height))
-            hp_ratio = CommandBoxManager.current_hp / CommandBoxManager.max_hp
-            pg.draw.rect(screen, YELLOW, (center_x - CommandBoxManager.hp_bar_width // 2, hp_bar_y, int(CommandBoxManager.hp_bar_width * hp_ratio), CommandBoxManager.hp_bar_height))
-            pg.draw.rect(screen, WHITE, (center_x - CommandBoxManager.hp_bar_width // 2, hp_bar_y, CommandBoxManager.hp_bar_width, CommandBoxManager.hp_bar_height), 2)
-
-            hp_text = font.render(f"{CommandBoxManager.current_hp} / {CommandBoxManager.max_hp}", True, WHITE)
-            text_x = center_x - CommandBoxManager.hp_bar_width // 2 + CommandBoxManager.hp_bar_width + 10
-            text_y = hp_bar_y + (CommandBoxManager.hp_bar_height - hp_text.get_height()) // 2
-            screen.blit(hp_text, (text_x, text_y))
 
         screen.fill(BLACK)
+
+        
+        if com_cnt != None and tmr - com_cnt >= 10:
+            action.state = False
+            action.text = action.font.render(action.command_result[action.action_num], True, WHITE)
+            screen.blit(action.text, (action.text_x, action.text_y))
+            
+        if com_cnt != None and tmr - com_cnt >= 120:
+            com_cnt = None
+
+        if turn.turn == "player":
+            action.draw_box(screen)
+            action.select_command(screen)
         command_manager.draw(screen,selected_index)
-        enemy.update(screen)
+        # enemy.update(screen)
         command_manager.update(screen)
         pg.display.update()
         clock.tick(60)
+        tmr += 1
 
 if __name__ == "__main__":
     pg.init()
