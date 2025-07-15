@@ -59,6 +59,43 @@ class CommandBoxManager:
             screen.blit(text, (text_x, text_y))
 
 
+class ItemMenu:
+    """
+    アイテムメニューの描画と操作管理クラス
+    """
+
+    def __init__(self, items: List[str], font: pg.font.Font, small_font: pg.font.Font) -> None:
+        self.items = items
+        self.font = font
+        self.small_font = small_font
+        self.selected_index = 0
+        self.is_open = False
+
+        self.menu_width = 800
+        self.menu_height = 400
+        self.menu_x = (WIDTH - self.menu_width) // 2
+        self.menu_y = (HEIGHT - self.menu_height) // 2
+        self.menu_rect = pg.Rect(self.menu_x, self.menu_y, self.menu_width, self.menu_height)
+
+    def draw(self, screen: pg.Surface) -> None:
+        """
+        アイテムメニューを画面に描画する。
+        """
+        # 背景と枠
+        pg.draw.rect(screen, BLACK, self.menu_rect)
+        pg.draw.rect(screen, WHITE, self.menu_rect, 3)
+
+        # タイトル
+        title = self.font.render("アイテム", True, WHITE)
+        screen.blit(title, (self.menu_x + 20, self.menu_y + 10))
+
+        # アイテムリスト表示
+        for i, item in enumerate(self.items):
+            color = YELLOW if i == self.selected_index else WHITE
+            item_text = self.small_font.render(f"- {item}", True, color)
+            screen.blit(item_text, (self.menu_x + 40, self.menu_y + 70 + i * 50))
+
+
 def main() -> None:
     """
     メインゲームループ
@@ -71,7 +108,7 @@ def main() -> None:
     pg.mouse.set_visible(False)
 
     max_hp = 50
-    current_hp = 50
+    current_hp = 1
 
     commands = ["こうげき", "アクション", "アイテム", "にげる"]
     selected_index = 0
@@ -85,6 +122,7 @@ def main() -> None:
     hp_bar_margin_top = 10
 
     command_manager = CommandBoxManager(commands, box_width, box_height, box_y, font)
+    item_menu = ItemMenu(items, font, small_font)
 
     running = True
     while running:
@@ -93,13 +131,28 @@ def main() -> None:
                 running = False
 
             elif event.type == pg.KEYDOWN:
-                if event.key == pg.K_RIGHT:
-                    selected_index = (selected_index + 1) % len(commands)
-                elif event.key == pg.K_LEFT:
-                    selected_index = (selected_index - 1) % len(commands)
-                elif event.key == pg.K_RETURN:
-                    # アイテムメニューなどはなし。ここに処理を書きたい場合は追記
-                    pass
+                if item_menu.is_open:
+                    if event.key == pg.K_ESCAPE:
+                        item_menu.is_open = False
+                    elif event.key == pg.K_DOWN:
+                        item_menu.selected_index = (item_menu.selected_index + 1) % len(item_menu.items)
+                    elif event.key == pg.K_UP:
+                        item_menu.selected_index = (item_menu.selected_index - 1) % len(item_menu.items)
+                    elif event.key == pg.K_RETURN:
+                        if current_hp < max_hp:
+                            current_hp += 10
+                            if current_hp > max_hp:
+                                current_hp = max_hp
+                        item_menu.is_open = False
+                else:
+                    if event.key == pg.K_RIGHT:
+                        selected_index = (selected_index + 1) % len(commands)
+                    elif event.key == pg.K_LEFT:
+                        selected_index = (selected_index - 1) % len(commands)
+                    elif event.key == pg.K_RETURN:
+                        if commands[selected_index] == "アイテム":
+                            item_menu.is_open = True
+                            item_menu.selected_index = 0
 
         screen.fill(BLACK)
 
@@ -109,19 +162,18 @@ def main() -> None:
         center_x = (boxes[1].centerx + boxes[2].centerx) // 2
         hp_bar_y = box_y + box_height + hp_bar_margin_top
 
-        # HPバー背景（黒）
         pg.draw.rect(screen, BLACK, (center_x - hp_bar_width // 2, hp_bar_y, hp_bar_width, hp_bar_height))
-        # HPバー黄色部分（HPの割合に応じた幅）
         hp_ratio = current_hp / max_hp
         pg.draw.rect(screen, YELLOW, (center_x - hp_bar_width // 2, hp_bar_y, int(hp_bar_width * hp_ratio), hp_bar_height))
-        # HPバー枠（白）
         pg.draw.rect(screen, WHITE, (center_x - hp_bar_width // 2, hp_bar_y, hp_bar_width, hp_bar_height), 2)
 
-        # HPバー横にHP数値表示
         hp_text = font.render(f"{current_hp} / {max_hp}", True, WHITE)
         text_x = center_x - hp_bar_width // 2 + hp_bar_width + 10
         text_y = hp_bar_y + (hp_bar_height - hp_text.get_height()) // 2
         screen.blit(hp_text, (text_x, text_y))
+
+        if item_menu.is_open:
+            item_menu.draw(screen)
 
         pg.display.update()
         clock.tick(60)
@@ -136,5 +188,14 @@ if __name__ == "__main__":
     WHITE = (255, 255, 255)
     BLACK = (0, 0, 0)
     YELLOW = (255, 255, 0)
+
+    items = [
+        "こうかとんのから揚げ",
+        "こうかとんのつくね",
+        "こうかとんのぼんじり",
+        "こうかとんのもも串",
+        "こうかとんの皮串",
+        "こうかとんだったもの",
+    ]
 
     main()
