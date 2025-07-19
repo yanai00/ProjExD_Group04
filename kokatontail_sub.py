@@ -60,7 +60,6 @@ class CommandBoxManager():
         self.comment_x = self.textbox_start_x + 30
         self.comment_y = self.textbox_start_y + 20
         self.commands = __class__.commands
-        self.selected_index = 0
         self.font = font
         self.former_hp = player.former_hp
         self.hp = player.hp
@@ -438,40 +437,6 @@ class Attack():
         self.attack_text = self.font.render(f"{self.targets[self.selected_index]}に{self.player.atk}ダメージ！", True, WHITE)
         screen.blit(self.attack_text, (self.command.comment_x, self.command.comment_y))
 
-class Action():
-    commands = ["はなす", "分析", "黙る"]
-    command_result = ["話しかけたが返事はなかった",
-                      "AT:3 DF:5  油断しなければ勝てるだろう",
-                      "静寂に包まれた"]
-    def __init__(self, command:CommandBoxManager, turn:TurnManager, font:pg.font.Font):
-        self.command = command
-        self.index = command.selected_index
-        self.command_result = __class__.command_result
-        self.state = False
-        self.action_num = 0
-        self.turn = turn
-        self.font = font
-        self.box_width = 1180
-        self.box_height = 280
-        self.start_x = (WIDTH - self.box_width) // 2
-        self.start_y = self.command.box_y - self.box_height - 20
-        self.commands = __class__.commands
-        self.text_x = self.start_x + 30
-        self.text_y = self.start_y + 30
-        self.tmr = 0
-
-    def draw_box(self, screen:pg.Surface):
-        pg.draw.rect(screen, WHITE, (self.start_x, self.start_y, self.box_width, self.box_height), 4)
-
-    def select_command(self, screen:pg.Surface):
-        if self.turn.turn == "player" and self.state == True:
-            for i in range(len(self.commands)):
-                self.text = self.font.render(self.commands[i], True, WHITE)
-                screen.blit(self.text, (self.text_x, self.text_y + i * 46))
-                if i == self.action_num:
-                    self.text = self.font.render(self.commands[i], True, YELLOW)
-                    screen.blit(self.text, (self.text_x, self.text_y + i * 46))
-
 def main():
     """
     メインゲームループ
@@ -489,12 +454,10 @@ def main():
     heart = Heart(command_manager, enemy_manager, turn)
     bombs_num = 15 + turn.num * 5
     bombs = Bomb.generate_bombs(bombs_num, enemy, enemy_manager, turn)
-    action = Action(command_manager, turn, small_font)
     selected_index = 0
     show_comment = False
     tmr = 0
     cnt = None
-    com_cnt = None
     item = ItemMenu(small_font, command_manager)
     escape = Escape(turn, command_manager)
     attack = Attack(command_manager, player, enemy, small_font)
@@ -519,15 +482,11 @@ def main():
                         if item.is_open == True:
                             item.selected_index = (item.selected_index + 1) % len(item.items)
                             attack.selected_index = (attack.selected_index + 1) % len(attack.targets)
-                    if action.state == True:
-                        action.action_num = (action.action_num + 1) % len(action.commands)
                 elif event.key == pg.K_UP:
                     if command_check == True:
                         if item.is_open == True:
                             item.selected_index = (item.selected_index - 1) % len(item.items)
                             attack.selected_index = (attack.selected_index - 1) % len(attack.targets)
-                    if action.state == True:
-                        action.action_num = (action.action_num -1) % len(action.commands)
                 elif event.key == pg.K_LEFT:
                     if command_check == False:
                         selected_index = (selected_index - 1) % len(command_manager.commands)
@@ -553,16 +512,11 @@ def main():
                                 show_attack = False
                                 show_comment = True
                         elif command_manager.commands[selected_index] == "アクション":
-                            if turn.turn == "player":
-                                if command_check == False and action.state == False:
-                                    action.state = True
-                                    command_check = True
-                                elif action.state == True:
-                                    action.state = False
-                                    com_cnt = tmr
-                                elif action.state == False and command_check == True:
-                                    show_comment = True
-                                    
+                            if show_comment == False:
+                                show_comment = True
+                            else:
+                                show_comment = False
+                                turn.turn_change()
                         elif command_manager.commands[selected_index] == "アイテム":
                             if command_check == False and item.is_open == False:
                                 item.is_open = True
@@ -628,18 +582,6 @@ def main():
 
         if command_manager.hp > 0:
             command_manager.draw(screen, selected_index)
-
-        if com_cnt != None and tmr - com_cnt >= 5:
-            action.state = False
-            action.text = action.font.render(action.command_result[action.action_num], True, WHITE)
-            screen.blit(action.text, (action.text_x, action.text_y))
-            
-        if com_cnt != None and tmr - com_cnt >= 120:
-            com_cnt = None
-
-        if turn.turn == "player":
-            action.draw_box(screen)
-            action.select_command(screen)
             
         command_manager.text_box(screen)
         enemy_manager.drawbox(screen)

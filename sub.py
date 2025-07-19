@@ -629,7 +629,7 @@ def main():
         if command_manager.hp > 0:
             command_manager.draw(screen, selected_index)
 
-        if com_cnt != None and tmr - com_cnt >= 5:
+        if com_cnt != None and tmr - com_cnt >= 10:
             action.state = False
             action.text = action.font.render(action.command_result[action.action_num], True, WHITE)
             screen.blit(action.text, (action.text_x, action.text_y))
