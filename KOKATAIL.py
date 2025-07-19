@@ -201,7 +201,6 @@ def main():
             action.draw_box(screen)
             action.select_command(screen)
         command_manager.draw(screen,selected_index)
-        # enemy.update(screen)
         command_manager.update(screen)
         pg.display.update()
         clock.tick(60)
