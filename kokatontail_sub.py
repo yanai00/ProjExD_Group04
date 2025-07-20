@@ -4,30 +4,9 @@ import sys
 from typing import List
 import random
 
-
-# --- 初期設定 ---
-# Pygameライブラリの初期化
-pg.init()
-
-# 画面のサイズを設定
-WIDTH, HEIGHT = 1920, 1080
-screen = pg.display.set_mode((WIDTH, HEIGHT))
-
-# ウィンドウのタイトルを設定
-pg.display.set_caption("コマンド選択画面 + HPバー + HP表示 + ターン管理")
-
-# 時間を管理するためのClockオブジェクト
-clock = pg.time.Clock()
-
-# マウスカーソルを非表示にする
-pg.mouse.set_visible(False)
-
-# --- 定数定義 ---
-# 色の定義 (R, G, B)
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 YELLOW = (255, 255, 0)
-GREY = (150, 150, 150)
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -38,81 +17,6 @@ WIDTH, HEIGHT = 1920, 1080
 font = pg.font.SysFont("meiryo", 50)
 small_font = pg.font.SysFont("meiryo", 36)
 enemy_font = pg.font.SysFont("meiryo", 45)
-
-class TurnManager:
-    """
-    プレイヤーと敵のターンと攻撃処理を管理するステートマシン
-    """
-    def __init__(self, player, enemy, command_manager):
-        self.state = "SELECTING"
-        self.selected_index = 0
-        self.target_index = 0
-        self.display_text = ""
-        self.player = player
-        self.enemy = enemy
-        self.cm = command_manager
-
-    def handle_event(self, event):
-        if event.type != pg.KEYDOWN:
-            return
-
-        key = event.key
-        if key == pg.K_RETURN:
-            if self.state == "SELECTING":
-                if self.cm.commands[self.selected_index] == "こうげき":
-                    self.state = "TARGET_SELECT_IN_BOX"
-            elif self.state == "TARGET_SELECT_IN_BOX":
-                # 攻撃実行
-                self.enemy.take_damage(self.player.atk)
-                self.display_text = f"＊{self.enemy.__class__.__name__}に{self.player.atk}ダメージ！"
-                self.state = "ATTACK_MESSAGE"
-            elif self.state == "ATTACK_MESSAGE":
-                self.display_text = f"＊{self.enemy.__class__.__name__}のターン。"
-                self.state = "ENEMY_TURN"
-            elif self.state == "ENEMY_TURN":
-                # 敵の攻撃
-                self.player.hp = max(0, self.player.hp - self.enemy.atk)
-                self.state = "SELECTING"
-
-        # カーソル移動
-        if self.state == "SELECTING":
-            if key == pg.K_LEFT:
-                self.selected_index = (self.selected_index - 1) % len(self.cm.commands)
-            elif key == pg.K_RIGHT:
-                self.selected_index = (self.selected_index + 1) % len(self.cm.commands)
-        elif self.state == "TARGET_SELECT_IN_BOX":
-            # 敵が一体なら上下不要。キャンセルだけ。
-            if key == pg.K_x:
-                self.state = "SELECTING"
-
-    def draw(self, screen):
-        # HPバーは常に描画
-        self.cm.draw_hp_bar(screen)
-
-        if self.state == "SELECTING":
-            self.cm.draw(screen, self.selected_index)
-        elif self.state == "TARGET_SELECT_IN_BOX":
-            self._draw_selection_box(screen, "だれを こうげきする？", [self.enemy.__class__.__name__], self.target_index)
-        else:  # ATTACK_MESSAGE or ENEMY_TURN
-            self._draw_message_box(screen, self.display_text)
-
-    def _draw_selection_box(self, screen, title, items, sel):
-        box = pg.Rect(400, HEIGHT-550, WIDTH-800, 150)
-        pg.draw.rect(screen, BLACK, box)
-        pg.draw.rect(screen, WHITE, box, 4)
-        t = small_font.render(title, True, WHITE)
-        screen.blit(t, (box.x+20, box.y+5))
-        for i, it in enumerate(items):
-            color = YELLOW if i == sel else WHITE
-            s = small_font.render(f"＊ {it}", True, color)
-            screen.blit(s, (box.x+40, box.y+45+i*45))
-
-    def _draw_message_box(self, screen, text):
-        box = pg.Rect(400, HEIGHT-550, WIDTH-800, 150)
-        pg.draw.rect(screen, BLACK, box)
-        pg.draw.rect(screen, WHITE, box, 4)
-        s = small_font.render(text, True, WHITE)
-        screen.blit(s, (box.x+40, box.y+30))
 
 class TurnManager():
     def __init__(self):
@@ -127,80 +31,12 @@ class TurnManager():
             self.num += 1
 
 class Player():
-    """
-    プレイヤーのHPと攻撃力を管理するクラス
-    """
-    def __init__(self, HP: int, ATK: int):
+    def __init__(self, HP:int, ATK:int, turn:TurnManager):
         self.former_hp = HP
         self.hp = self.former_hp
         self.former_atk = ATK
         self.atk = self.former_atk
         self.turn = turn
-
-    def attack(self, enemy):
-        enemy.take_damage(self.atk)
-
-
-class Escape():
-    """
-    逃げるコマンドの判定クラス
-    20%の確率で成功（True）、それ以外は失敗（False）を返す
-    逃げた回数や失敗回数も記録
-    """
-    def __init__(self):
-        """
-        Escapeオブジェクトを初期化する。
-        success_count: 成功した逃走回数
-        fail_count: 失敗した逃走回数
-        last_result: 最後の逃走結果 (True=成功, False=失敗, None=未試行)
-        """
-
-        self.success_count = 0
-        self.fail_count = 0
-        self.last_result = None  # True:成功, False:失敗
-
-    def try_escape(self) -> bool:
-        """
-        逃走を試みる。
-        成功確率は10%。
-        Returns:
-            bool: 逃走成功ならTrue、失敗ならFalse
-        """
-        result = random.random() < 0.2 
-        self.last_result = result
-        if result:
-            self.success_count += 1
-        else:
-            self.fail_count += 1
-        return result
-    
-    def show_result(self, screen:pg.surface, font:pg.font.Font) -> None:
-        """
-        最後の逃走結果を画面中央に表示し、少し待機する。
-
-        Args:
-            screen (pg.Surface): 描画先のSurface
-            font (pg.font.Font): 文字描画に使用するフォント
-        """
-
-        if self.last_result is None:
-            return
-        screen.fill(BLACK)
-        if self.last_result:
-            msg = font.render("逃げた", True, (0, 255, 0))
-            msg_rect = msg.get_rect()
-            msg_rect.center = (WIDTH // 2, HEIGHT // 2)
-            screen.blit(msg, msg_rect)
-            pg.display.update()
-            time.sleep(2)
-        else:
-            msg = font.render("逃げれなかった", True, (255, 0, 0))
-
-            msg_rect = msg.get_rect()
-            msg_rect.center = (WIDTH // 2, HEIGHT // 2)
-            screen.blit(msg, msg_rect)
-            pg.display.update()
-            time.sleep(1)
 
 class CommandBoxManager():
     """
@@ -224,7 +60,6 @@ class CommandBoxManager():
         self.comment_x = self.textbox_start_x + 30
         self.comment_y = self.textbox_start_y + 20
         self.commands = __class__.commands
-        self.selected_index = 0
         self.font = font
         self.former_hp = player.former_hp
         self.hp = player.hp
@@ -318,21 +153,6 @@ class Enemy():
             self.rect.centerx = WIDTH // 2
             self.rect.centery = 300
         screen.blit(self.image,self.rect)
-
-    def draw_hp_bar(self, screen: pg.Surface):
-        boxes = self.get_command_boxes()
-        cx = (boxes[1].centerx + boxes[2].centerx)//2
-        # 背景
-        pg.draw.rect(screen, BLACK, (cx - self.hp_bar_width//2, self.hp_bar_y, self.hp_bar_width, self.hp_bar_height))
-        # 黄色部分
-        ratio = self.player.hp / self.player.former_hp
-        pg.draw.rect(screen, YELLOW, (cx - self.hp_bar_width//2, self.hp_bar_y, int(self.hp_bar_width*ratio), self.hp_bar_height))
-        # 枠
-        pg.draw.rect(screen, WHITE, (cx - self.hp_bar_width//2, self.hp_bar_y, self.hp_bar_width, self.hp_bar_height), 2)
-        # 数値
-        txt = font.render(f"{self.player.hp} / {self.player.former_hp}", True, WHITE)
-        screen.blit(txt, (cx - self.hp_bar_width//2 + self.hp_bar_width + 10,
-                          self.hp_bar_y + (self.hp_bar_height - txt.get_height())//2))
 
 class EnemyBoxManager():
     def __init__(self, player:Player, turn:TurnManager, command:CommandBoxManager, enemy:Enemy, font:pg.font.Font, crear_font:pg.font.Font):
@@ -463,31 +283,6 @@ class Escape():
         # self.fail_count = 0
         self.last_result = None  # True:成功, False:失敗
 
-    def take_damage(self, damage):
-        self.hp -= damage
-        if self.hp < 0:
-            self.hp = 0
-
-    def update(self, screen: pg.Surface):
-        self.tmr += 1
-        if self.tmr >= 20 and self.command.hp > 0:
-            if self.tmr % 80 == 20:
-                self.rect.centerx += 20
-                self.rect.centery += 10
-            elif self.tmr % 80 == 40:
-                self.rect.centerx -= 20
-                self.rect.centery -= 10
-            elif self.tmr % 80 == 60:
-                self.rect.centerx -= 20
-                self.rect.centery += 10
-            elif self.tmr % 80 == 0:
-                self.rect.centerx += 20
-                self.rect.centery -= 10
-        elif self.command.hp == 0:
-            self.rect.centerx = WIDTH // 2
-            self.rect.centery = 300
-        screen.blit(self.image,self.rect)
-=======
     def try_escape(self) -> bool:
         """
         逃走を試みる。
@@ -547,7 +342,7 @@ class Heart():
             if key_lst[k]:
                 sum_mv[0] += mv[0]
                 sum_mv[1] += mv[1]
-        if self.state == "alive":
+        if self.state is "alive":
             self.rect.move_ip(self.speed*sum_mv[0], self.speed*sum_mv[1])
             if (self.rect.left < self.box.enemybox_x or self.rect.right > self.box.enemybox_x + self.box.enemybox_width) and (self.rect.top < self.box.enemybox_y or self.rect.bottom > self.box.enemybox_y + self.box.enemybox_height):
                 self.rect.move_ip(-self.speed*sum_mv[0], -self.speed*sum_mv[1])
@@ -599,13 +394,6 @@ class Bomb():
                     self.rect.move_ip(self.vx, self.vy)
                     self.life -= 1
 
-def draw_message_box(screen, text):
-    box_rect = pg.Rect(400, HEIGHT - 550, WIDTH - 800, 150)
-    pg.draw.rect(screen, BLACK, box_rect)
-    pg.draw.rect(screen, WHITE, box_rect, 4)
-    surf = small_font.render(text, True, WHITE)
-    screen.blit(surf, (box_rect.x + 40, box_rect.y + 30))
-=======
 class Attack():
     
     targets = ["サンズとん"]
@@ -649,40 +437,6 @@ class Attack():
         self.attack_text = self.font.render(f"{self.targets[self.selected_index]}に{self.player.atk}ダメージ！", True, WHITE)
         screen.blit(self.attack_text, (self.command.comment_x, self.command.comment_y))
 
-class Action():
-    commands = ["はなす", "分析", "黙る"]
-    command_result = ["話しかけたが返事はなかった",
-                      "AT:3 DF:5  油断しなければ勝てるだろう",
-                      "静寂に包まれた"]
-    def __init__(self, command:CommandBoxManager, turn:TurnManager, font:pg.font.Font):
-        self.command = command
-        self.index = command.selected_index
-        self.command_result = __class__.command_result
-        self.state = False
-        self.action_num = 0
-        self.turn = turn
-        self.font = font
-        self.box_width = 1180
-        self.box_height = 280
-        self.start_x = (WIDTH - self.box_width) // 2
-        self.start_y = self.command.box_y - self.box_height - 20
-        self.commands = __class__.commands
-        self.text_x = self.start_x + 30
-        self.text_y = self.start_y + 30
-        self.tmr = 0
-
-    def draw_box(self, screen:pg.Surface):
-        pg.draw.rect(screen, WHITE, (self.start_x, self.start_y, self.box_width, self.box_height), 4)
-
-    def select_command(self, screen:pg.Surface):
-        if self.turn.turn == "player" and self.state == True:
-            for i in range(len(self.commands)):
-                self.text = self.font.render(self.commands[i], True, WHITE)
-                screen.blit(self.text, (self.text_x, self.text_y + i * 46))
-                if i == self.action_num:
-                    self.text = self.font.render(self.commands[i], True, YELLOW)
-                    screen.blit(self.text, (self.text_x, self.text_y + i * 46))
-                    
 def main():
     """
     メインゲームループ
@@ -693,32 +447,17 @@ def main():
     pg.mouse.set_visible(False)
 
     turn = TurnManager()
-    player = Player(50, 5)
+    player = Player(50, 5, turn)
     command_manager = CommandBoxManager(player, turn, font)
     enemy = Enemy(50, 5, command_manager, turn, small_font)
     enemy_manager = EnemyBoxManager(player, turn, command_manager, enemy, enemy_font, font)
     heart = Heart(command_manager, enemy_manager, turn)
     bombs_num = 15 + turn.num * 5
     bombs = Bomb.generate_bombs(bombs_num, enemy, enemy_manager, turn)
-    action = Action(command_manager, turn, small_font)
     selected_index = 0
     show_comment = False
-    comment_text = ""
-    comment_start_tmr = 0
     tmr = 0
     cnt = None
-
-    items = [
-        "こうかとんのから揚げ",
-        "こうかとんのつくね",
-        "こうかとんのぼんじり",
-        "こうかとんのもも串",
-        "こうかとんの皮串",
-        "こうかとんだったもの",
-    ]
-    item_menu = ItemMenu(items, font, small_font)
-
-    com_cnt = None
     item = ItemMenu(small_font, command_manager)
     escape = Escape(turn, command_manager)
     attack = Attack(command_manager, player, enemy, small_font)
@@ -727,12 +466,6 @@ def main():
     show_escape = False
     show_attack = False
 
-    state = "PLAYER_TURN"  # "PLAYER_TURN", "PLAYER_ATTACK_MSG", "ENEMY_TURN", "GAME_OVER"
-    show_damage_msg = False
-    damage_msg = ""
-    damage_msg_start_tmr = 0
-    gameover_start_tmr = 0
-    just_gameover = False
     while True:
         screen.fill(BLACK)
         key_lst = pg.key.get_pressed()
@@ -740,52 +473,6 @@ def main():
             if event.type == pg.QUIT:
                 return
             elif event.type == pg.KEYDOWN:
-                if item_menu.is_open:
-                    if event.key == pg.K_ESCAPE:
-                        item_menu.is_open = False
-                    elif event.key == pg.K_DOWN:
-                        item_menu.selected_index = (item_menu.selected_index + 1) % len(item_menu.items)
-                    elif event.key == pg.K_UP:
-                        item_menu.selected_index = (item_menu.selected_index - 1) % len(item_menu.items)
-                    elif event.key == pg.K_RETURN:
-                        # アイテム使用時のHP回復処理
-                        if command_manager.hp < command_manager.former_hp:
-                            command_manager.hp += 10
-                            if command_manager.hp > command_manager.former_hp:
-                                command_manager.hp = command_manager.former_hp
-                        item_menu.is_open = False
-                else:
-                    if state == "PLAYER_TURN":
-                        if event.key == pg.K_RIGHT:
-                            selected_index = (selected_index + 1) % len(CommandBoxManager.commands)
-                        elif event.key == pg.K_LEFT:
-                            selected_index = (selected_index - 1) % len(CommandBoxManager.commands)
-                        elif event.key == pg.K_RETURN:
-                            if CommandBoxManager.commands[selected_index] == "アイテム":
-                                item_menu.is_open = True
-                                item_menu.selected_index = 0
-                            elif CommandBoxManager.commands[selected_index] == "こうげき":
-                                if turn.turn == "player":
-                                    player.attack(enemy)
-                                    show_damage_msg = True
-                                    damage_msg = f"{player.atk}ダメージ！"
-                                    damage_msg_start_tmr = tmr
-                                    state = "PLAYER_ATTACK_MSG"
-                                    comment_text = f"{player.atk}ダメージを与えた！"
-                                    comment_start_tmr = tmr
-                                    turn.turn_change()
-                            else:
-                                if turn.turn == "player":
-                                    if show_comment == False:
-                                        show_comment = True
-                                        comment_text = ""
-                                        comment_start_tmr = tmr
-                                    else:
-                                        show_comment = False
-                                        turn.turn_change()
-                                else:
-                                    turn.turn_change()
-        if command_manager.hp == 0 and cnt is None:
                 if event.key == pg.K_q:
                     item.is_open = False
                     attack.is_open = False
@@ -795,15 +482,11 @@ def main():
                         if item.is_open == True:
                             item.selected_index = (item.selected_index + 1) % len(item.items)
                             attack.selected_index = (attack.selected_index + 1) % len(attack.targets)
-                    if action.state == True:
-                        action.action_num = (action.action_num + 1) % len(action.commands)
                 elif event.key == pg.K_UP:
                     if command_check == True:
                         if item.is_open == True:
                             item.selected_index = (item.selected_index - 1) % len(item.items)
                             attack.selected_index = (attack.selected_index - 1) % len(attack.targets)
-                    if action.state == True:
-                        action.action_num = (action.action_num -1) % len(action.commands)
                 elif event.key == pg.K_LEFT:
                     if command_check == False:
                         selected_index = (selected_index - 1) % len(command_manager.commands)
@@ -829,16 +512,11 @@ def main():
                                 show_attack = False
                                 show_comment = True
                         elif command_manager.commands[selected_index] == "アクション":
-                            if turn.turn == "player":
-                                if command_check == False and action.state == False:
-                                    action.state = True
-                                    command_check = True
-                                elif action.state == True:
-                                    action.state = False
-                                    com_cnt = tmr
-                                elif action.state == False and command_check == True:
-                                    show_comment = True
-                                    
+                            if show_comment == False:
+                                show_comment = True
+                            else:
+                                show_comment = False
+                                turn.turn_change()
                         elif command_manager.commands[selected_index] == "アイテム":
                             if command_check == False and item.is_open == False:
                                 item.is_open = True
@@ -867,68 +545,14 @@ def main():
                 
         if (command_manager.hp == 0 or enemy.hp == 0) and cnt is None:
             cnt = tmr
+            
         if cnt is not None and tmr - cnt >= 60:
             turn.turn = "player"
             show_comment = True
-            comment_text = ""
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_RETURN:
                     return
-
-        # stateによる進行管理
-        if state == "PLAYER_ATTACK_MSG":
-            # ダメージメッセージのみ表示
-            msg_surf = font.render(damage_msg, True, (255, 0, 0))
-            msg_rect = msg_surf.get_rect(center=(enemy.rect.centerx, enemy.rect.top - 40))
-            screen.blit(msg_surf, msg_rect)
-            if tmr - damage_msg_start_tmr > 60:
-                if command_manager.hp <= 0:
-                    state = "GAME_OVER"
-                    gameover_start_tmr = tmr
-                    just_gameover = True
-                else:
-                    state = "ENEMY_TURN"
-        elif state == "ENEMY_TURN":
-            for bomb in bombs:
-                if bomb.rect.bottom >= enemy_manager.enemybox_y + enemy_manager.enemybox_height:
-                    bombs.remove(bomb)
-                elif heart.rect.colliderect(bomb.rect):
-                    bombs.remove(bomb)
-                    command_manager.hp -= enemy.atk
-                else:
-                    bomb.update(screen)
-            # 弾幕が全て消えたらプレイヤーターンに戻す
-            if command_manager.hp <= 0:
-                state = "GAME_OVER"
-                gameover_start_tmr = tmr
-                just_gameover = True
-            elif turn.turn == "enemy" and all(bomb.life <= 0 for bomb in bombs):
-                turn.turn_change()
-                bombs_num = 15 + turn.num * 5
-                bombs = Bomb.generate_bombs(bombs_num, enemy, enemy_manager, turn)
-                state = "PLAYER_TURN"
-        elif state == "PLAYER_TURN":
-            if turn.turn == "player":
-                enemy_manager.comments(screen)
-            if command_manager.hp > 0:
-                command_manager.draw(screen, selected_index)
-        if state == "GAME_OVER":
-            pg.draw.rect(screen, WHITE, (enemy_manager.start_x, enemy_manager.start_y, enemy_manager.box_width, enemy_manager.box_height), 4)
-        else:
-            enemy_manager.drawbox(screen)
-        if state == "GAME_OVER":
-            enemy_manager.comment = enemy_manager.death_comment
-            enemy_manager.comments(screen)
-            if just_gameover:
-                pg.display.update()
-                just_gameover = False
-            if tmr - gameover_start_tmr > 120:
-                return
-        enemy.update(screen)
-        command_manager.update(screen) # HPバーの描画と更新
-        heart.update(key_lst, screen)
-        if item_menu.is_open:
-            item_menu.draw(screen)                
+                
         if item.is_open == True and command_check == True:
             item.draw(screen)
             
@@ -958,18 +582,6 @@ def main():
 
         if command_manager.hp > 0:
             command_manager.draw(screen, selected_index)
-
-        if com_cnt != None and tmr - com_cnt >= 5:
-            action.state = False
-            action.text = action.font.render(action.command_result[action.action_num], True, WHITE)
-            screen.blit(action.text, (action.text_x, action.text_y))
-            
-        if com_cnt != None and tmr - com_cnt >= 120:
-            com_cnt = None
-
-        if turn.turn == "player":
-            action.draw_box(screen)
-            action.select_command(screen)
             
         command_manager.text_box(screen)
         enemy_manager.drawbox(screen)
@@ -994,12 +606,6 @@ def main():
         pg.display.update()
         clock.tick(60)
         tmr += 1
-        for bomb in bombs:
-            if heart.rect.colliderect(bomb.rect):
-                bombs.remove(bomb)
-                command_manager.hp -= enemy.atk
-            else:
-                bomb.update(screen)
 
 if __name__ == "__main__":
     WIDTH, HEIGHT = 1920, 1080
