@@ -60,6 +60,7 @@ class CommandBoxManager():
         self.comment_x = self.textbox_start_x + 30
         self.comment_y = self.textbox_start_y + 20
         self.commands = __class__.commands
+        self.selected_index = 0
         self.font = font
         self.former_hp = player.former_hp
         self.hp = player.hp
@@ -122,8 +123,7 @@ class Enemy():
     img0 = pg.image.load(f"photo/enemy1_bob_v2.gif")
     img = pg.transform.rotozoom(img0,0,0.3)
     def __init__(self, HP:int, ATK:int, command:CommandBoxManager, turn:TurnManager, font):
-        self.formal_hp = HP
-        self.hp = self.formal_hp
+        self.hp = HP
         self.atk = ATK
         self.font = font
         self.name = "サンズとん"
@@ -195,10 +195,12 @@ class EnemyBoxManager():
         if self.command.hp == 0:
             self.comment = self.death_comment
             self.enemy_text = self.font.render(self.comment, True, (255, 0, 0))
+            screen.blit(self.enemy_text, (self.command.comment_x, self.command.comment_y))
         
         elif self.enemy.hp == 0:
             self.comment = self.crear_comment
             self.enemy_text = self.crear_font.render(self.comment, True, WHITE)
+            screen.blit(self.enemy_text, (self.command.comment_x, self.command.comment_y))
             
         elif self.command.hp > 0:
             if self.turn.num < len(self.comments_list):
@@ -206,7 +208,7 @@ class EnemyBoxManager():
             else:
                 self.comment = self.comments_list[-1]
             self.enemy_text = self.font.render(self.comment, True, (255, 0, 0))
-        screen.blit(self.enemy_text, (self.command.comment_x, self.command.comment_y))
+            screen.blit(self.enemy_text, (self.command.comment_x, self.command.comment_y))
 
 class ItemMenu():
     """
@@ -220,8 +222,8 @@ class ItemMenu():
         "こうかとんの皮串",
         "こうかとんだったもの",
     ]
-    healing_point = [10, 10, 10, 10, 10, 10]
     
+    healing_point = [10, 10, 10, 10, 10, 10]
     def __init__(self, small_font: pg.font.Font, command:CommandBoxManager) -> None:
         self.items = __class__.items
         self.point = __class__.healing_point
@@ -278,8 +280,9 @@ class Escape():
         """
         self.turn = turn
         self.command = command
+        # self.success_count = 0
+        # self.fail_count = 0
         self.last_result = None  # True:成功, False:失敗
-        self.escape_p = 0.2
 
     def try_escape(self) -> bool:
         """
@@ -288,8 +291,12 @@ class Escape():
         Returns:
             bool: 逃走成功ならTrue、失敗ならFalse
         """
-        result = random.random() < self.escape_p
+        result = random.random() < 0.2 
         self.last_result = result
+        # if result:
+        #     self.success_count += 1
+        # else:
+        #     self.fail_count += 1
         return result
     
     def show_result(self, screen:pg.surface, font:pg.font.Font) -> None:
@@ -430,69 +437,40 @@ class Attack():
     def attack_comment(self, screen:pg.Surface):
         self.attack_text = self.font.render(f"{self.targets[self.selected_index]}に{self.player.atk}ダメージ！", True, WHITE)
         screen.blit(self.attack_text, (self.command.comment_x, self.command.comment_y))
-        
+
 class Action():
-    commands = ["はなしかける", "分析", "黙る"]
-    def __init__(self, command:CommandBoxManager, enemy:Enemy, turn:TurnManager, escape:Escape, font:pg.font.Font):
+    commands = ["はなす", "分析", "黙る"]
+    command_result = ["話しかけたが返事はなかった",
+                      "AT:3 DF:5  油断しなければ勝てるだろう",
+                      "静寂に包まれた"]
+    def __init__(self, command:CommandBoxManager, turn:TurnManager, font:pg.font.Font):
         self.command = command
-        self.enemy = enemy
-        self.selected_index = 0
+        self.index = command.selected_index
+        self.command_result = __class__.command_result
+        self.state = False
+        self.action_num = 0
         self.turn = turn
-        self.escape_p = escape.escape_p
         self.font = font
+        self.box_width = 1180
+        self.box_height = 280
+        self.start_x = (WIDTH - self.box_width) // 2
+        self.start_y = self.command.box_y - self.box_height - 20
         self.commands = __class__.commands
+        self.text_x = self.start_x + 30
+        self.text_y = self.start_y + 30
         self.tmr = 0
-        self.enemy_state = (self.enemy.hp * 5 / self.enemy.formal_hp - 0.5) // 1
-        self.is_open = False
-        self.num = None
-        self.comments_list = ["シカトされた",
-                        "戦いに集中しよう",
-                        "目が合うようになってきた",
-                        "笑った..？",
-                        "楽しそうだ"]
-        self.feeling_list = ["勝利は目前だ",
-                             "このままいけば勝てそうだ",
-                             "この調子でいこう",
-                             "まだまだ気は抜けない",
-                             "強敵だ"]
 
-    def draw(self, screen:pg.Surface):
-        if self.is_open == True:
-            # タイトル
-            title = self.font.render("何をする？", True, WHITE)
-            screen.blit(title, (self.command.comment_x, self.command.comment_y))
+    def draw_box(self, screen:pg.Surface):
+        pg.draw.rect(screen, WHITE, (self.start_x, self.start_y, self.box_width, self.box_height), 4)
 
-            # アイテムリスト表示
-            for i, action in enumerate(self.commands):
-                color = YELLOW if i == self.selected_index else WHITE
-                action_text = self.font.render(f"- {action}", True, color)
-                if self.command.comment_y + (i + 1) * 50 + 36 < self.command.textbox_start_y + self.command.textbox_height:
-                    screen.blit(action_text, (self.command.comment_x + 40, self.command.comment_y + (i + 1) * 50))
-                elif self.num != None:
-                    screen.blit(action_text, (self.command.comment_x + 40 + self.command.textbox_width // 2, self.command.comment_y + (i + 1 - self.num) * 50))
-                else:
-                    self.num = i
-                    
-    def try_talk(self):
-        self.escape_p += 0.1
-        if self.escape_p >= 0.8:
-            self.escape_p = 0.8
-                    
-    def action_comment(self, screen:pg.Surface):
-        self.enemy_state = int((self.enemy.hp * 5 / self.enemy.formal_hp - 0.5) // 1)
-        if self.selected_index == 0:
-            if self.turn.num < len(self.comments_list):
-                self.comment = self.comments_list[self.turn.num]
-            else:
-                self.comment = self.comments_list[-1]
-            self.action_text = self.font.render(self.comment, True, WHITE)
-        elif self.selected_index == 1:
-            self.action_text = self.font.render(f"HP:{self.enemy.hp} ATK:{self.enemy.atk}", True, WHITE)
-            self.feeling_text = self.font.render(self.feeling_list[self.enemy_state], True, WHITE)
-            screen.blit(self.feeling_text, (self.command.comment_x, self.command.comment_y + 50))
-        elif self.selected_index == 2:
-            self.action_text = self.font.render("静寂に包まれた...", True, WHITE)
-        screen.blit(self.action_text, (self.command.comment_x, self.command.comment_y))
+    def select_command(self, screen:pg.Surface):
+        if self.turn.turn == "player" and self.state == True:
+            for i in range(len(self.commands)):
+                self.text = self.font.render(self.commands[i], True, WHITE)
+                screen.blit(self.text, (self.text_x, self.text_y + i * 46))
+                if i == self.action_num:
+                    self.text = self.font.render(self.commands[i], True, YELLOW)
+                    screen.blit(self.text, (self.text_x, self.text_y + i * 46))
 
 def main():
     """
@@ -511,56 +489,53 @@ def main():
     heart = Heart(command_manager, enemy_manager, turn)
     bombs_num = 15 + turn.num * 5
     bombs = Bomb.generate_bombs(bombs_num, enemy, enemy_manager, turn)
+    action = Action(command_manager, turn, small_font)
     selected_index = 0
     show_comment = False
     tmr = 0
     cnt = None
+    com_cnt = None
     item = ItemMenu(small_font, command_manager)
     escape = Escape(turn, command_manager)
     attack = Attack(command_manager, player, enemy, small_font)
-    action = Action(command_manager, enemy, turn, escape, small_font)
     command_check = False
     show_item = False
     show_escape = False
     show_attack = False
-    show_action = False
 
     while True:
         screen.fill(BLACK)
         key_lst = pg.key.get_pressed()
         for event in pg.event.get():
-            if turn.turn == "player":
-                if event.type == pg.QUIT:
-                    return
-                elif event.type == pg.KEYDOWN:
-                    if event.key == pg.K_q:
-                        item.is_open = False
-                        attack.is_open = False
-                        action.is_open = False
-                        command_check = False
-                    elif event.key == pg.K_DOWN:
-                        if command_check == True:
-                            if item.is_open == True:
-                                item.selected_index = (item.selected_index + 1) % len(item.items)
-                            elif attack.is_open == True:
-                                attack.selected_index = (attack.selected_index + 1) % len(attack.targets)
-                            elif action.is_open == True:
-                                action.selected_index = (action.selected_index + 1) % len(action.commands)
-                    elif event.key == pg.K_UP:
-                        if command_check == True:
-                            if item.is_open == True:
-                                item.selected_index = (item.selected_index - 1) % len(item.items)
-                            elif attack.is_open == True:
-                                attack.selected_index = (attack.selected_index - 1) % len(attack.targets)
-                            elif action.is_open == True:
-                                action.selected_index = (action.selected_index - 1) % len(action.commands)
-                    elif event.key == pg.K_LEFT:
-                        if command_check == False:
-                            selected_index = (selected_index - 1) % len(command_manager.commands)
-                    elif event.key == pg.K_RIGHT:
-                        if command_check == False:
-                            selected_index = (selected_index + 1) % len(command_manager.commands)
-                    elif event.key == pg.K_RETURN:
+            if event.type == pg.QUIT:
+                return
+            elif event.type == pg.KEYDOWN:
+                if event.key == pg.K_q:
+                    item.is_open = False
+                    attack.is_open = False
+                    command_check = False
+                elif event.key == pg.K_DOWN:
+                    if command_check == True:
+                        if item.is_open == True:
+                            item.selected_index = (item.selected_index + 1) % len(item.items)
+                            attack.selected_index = (attack.selected_index + 1) % len(attack.targets)
+                    if action.state == True:
+                        action.action_num = (action.action_num + 1) % len(action.commands)
+                elif event.key == pg.K_UP:
+                    if command_check == True:
+                        if item.is_open == True:
+                            item.selected_index = (item.selected_index - 1) % len(item.items)
+                            attack.selected_index = (attack.selected_index - 1) % len(attack.targets)
+                    if action.state == True:
+                        action.action_num = (action.action_num -1) % len(action.commands)
+                elif event.key == pg.K_LEFT:
+                    if command_check == False:
+                        selected_index = (selected_index - 1) % len(command_manager.commands)
+                elif event.key == pg.K_RIGHT:
+                    if command_check == False:
+                        selected_index = (selected_index + 1) % len(command_manager.commands)
+                elif event.key == pg.K_RETURN:
+                    if turn.turn == "player":
                         if show_comment == True and command_check == True:
                             command_check = False
                             show_comment = False
@@ -578,17 +553,16 @@ def main():
                                 show_attack = False
                                 show_comment = True
                         elif command_manager.commands[selected_index] == "アクション":
-                            if command_check == False and action.is_open == False:
-                                action.is_open = True
-                                command_check = True
-                            elif action.is_open == True:
-                                if action.commands[action.selected_index] == "はなしかける":
-                                    action.try_talk()
-                                action.is_open = False
-                                show_action = True
-                            elif action.is_open == False and command_check == True:
-                                show_action = False
-                                show_comment = True
+                            if turn.turn == "player":
+                                if command_check == False and action.state == False:
+                                    action.state = True
+                                    command_check = True
+                                elif action.state == True:
+                                    action.state = False
+                                    com_cnt = tmr
+                                elif action.state == False and command_check == True:
+                                    show_comment = True
+                                    
                         elif command_manager.commands[selected_index] == "アイテム":
                             if command_check == False and item.is_open == False:
                                 item.is_open = True
@@ -602,16 +576,17 @@ def main():
                                 show_item = False
                                 show_comment = True
                         elif command_manager.commands[selected_index] == "にげる":
-                            if show_escape == True:
-                                if escape.last_result:
-                                    return
+                            if turn.turn == "player":
+                                if show_escape == True:
+                                    if escape.last_result:
+                                        return
+                                    else:
+                                        show_escape = False
+                                        show_comment = True
                                 else:
-                                    show_escape = False
-                                    show_comment = True
-                            else:
-                                show_escape = True
-                                command_check = True
-                                escape.try_escape()
+                                    show_escape = True
+                                    command_check = True
+                                    escape.try_escape()
                         
                 
         if (command_manager.hp == 0 or enemy.hp == 0) and cnt is None:
@@ -630,9 +605,6 @@ def main():
         if attack.is_open == True and command_check == True:
             attack.draw(screen)
             
-        if action.is_open == True and command_check == True:
-            action.draw(screen)
-            
         if show_escape == True:
             escape.show_result(screen, small_font) 
                 
@@ -644,9 +616,6 @@ def main():
             
         if show_attack == True:
             attack.attack_comment(screen)
-            
-        if show_action == True:
-            action.action_comment(screen)
         
         for bomb in bombs:
             if bomb.rect.bottom >= enemy_manager.enemybox_y + enemy_manager.enemybox_height:
@@ -659,6 +628,18 @@ def main():
 
         if command_manager.hp > 0:
             command_manager.draw(screen, selected_index)
+
+        if com_cnt != None and tmr - com_cnt >= 10:
+            action.state = False
+            action.text = action.font.render(action.command_result[action.action_num], True, WHITE)
+            screen.blit(action.text, (action.text_x, action.text_y))
+            
+        if com_cnt != None and tmr - com_cnt >= 120:
+            com_cnt = None
+
+        if turn.turn == "player":
+            action.draw_box(screen)
+            action.select_command(screen)
             
         command_manager.text_box(screen)
         enemy_manager.drawbox(screen)
@@ -677,6 +658,9 @@ def main():
             bombs_num = 15 + turn.num * 5
             bombs = Bomb.generate_bombs(bombs_num, enemy, enemy_manager, turn)
 
+        if item.is_open:
+            item.draw(screen)
+
         pg.display.update()
         clock.tick(60)
         tmr += 1
@@ -692,3 +676,4 @@ if __name__ == "__main__":
     main()
     pg.quit()
     sys.exit()
+
